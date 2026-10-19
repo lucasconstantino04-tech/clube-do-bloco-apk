@@ -1,0 +1,53 @@
+name: Gerar APK Clube do Bloco
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar arquivos do repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Preparar jogo
+        run: |
+          mkdir -p web extraido
+          ZIP="$(find . -maxdepth 1 -iname '*.zip' | head -n 1)"
+          test -n "$ZIP"
+          unzip -q "$ZIP" -d extraido
+          HTML="$(find extraido -type f -iname '*.html' | head -n 1)"
+          test -n "$HTML"
+          cp -a "$(dirname "$HTML")"/. web/
+          cp "$HTML" web/index.html
+          test -f web/index.html
+          printf '{"appId":"com.clubedobloco.app","appName":"Clube do Bloco","webDir":"web"}' > capacitor.config.json
+          npm init -y
+          npm install @capacitor/core@6 @capacitor/android@6
+          npm install --save-dev @capacitor/cli@6
+          npx cap add android
+          npx cap sync android
+
+      - name: Compilar APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Disponibilizar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: clube-do-bloco-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
